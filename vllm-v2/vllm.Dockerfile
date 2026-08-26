@@ -1,7 +1,6 @@
 # Build seq: rocm_base => build_base => {build_triton => build_fa => build_vllm, build_rust} => final
 
 ARG BASE_PYTORCH_IMAGE="docker.io/mixa3607/pytorch-gfx906:v2.10.0-rocm-6.3.3"
-ARG MAX_JOBS=""
 ARG EXTRA_REQUIREMENTS="empty.txt"
 # Optional apt mirror override (e.g. http://ubuntu.mirror.lrz.de/ubuntu/).
 # Empty = keep the image default. Rewrites both archive. and security. hosts.
@@ -150,9 +149,7 @@ COPY --from=files_triton /app/triton /app/triton
 WORKDIR /app/triton
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r python/requirements.txt
 # Build
-ARG MAX_JOBS
-RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} \
-    pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
+RUN pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/triton-*.whl
 RUN ls /dist
 
@@ -162,9 +159,7 @@ COPY --from=files_fa /app/flash-attention /app/flash-attention
 WORKDIR /app/flash-attention
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install ninja packaging wheel pybind11 psutil
 # Build
-ARG MAX_JOBS
-RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} \
-    pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
+RUN pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/flash_attn-*.whl
 RUN ls /dist
 
@@ -185,9 +180,7 @@ COPY --from=build_rust /app/vllm/vllm/_rust_*.so /app/vllm/vllm/
 WORKDIR /app/vllm
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r requirements/rocm.txt
 # Build
-ARG MAX_JOBS
-RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} \
-    pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
+RUN pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/vllm-*.whl
 RUN ls /dist 
 
@@ -201,5 +194,23 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install /dist/*.whl /dist/flash_attn-*.whl -r /app/vllm/requirements/rocm.txt && \
     pip3 install -r /app/extra-requirements/*.txt && \
     true
+
+# gfx906 TP CPU-spin fix: a Python .pth shim that must run at interpreter
+# startup, before torch/vLLM import anything, to set
+# hipDeviceScheduleBlockingSync on every visible HIP device before the
+# process's first HIP queue is created (the flag is baked into each
+# queue's signals at creation time and cannot be changed afterward --
+# see docs/gfx906/degradation_details.md 2026-08-25 for the trace).
+# Without it every TP worker permanently burns 1-2 host cores at
+# ~100%+ CPU for the life of the process. Toggle off with
+# VLLM_GFX906_HIP_BLOCKING_SYNC=0. VLLM_GFX906_HIP_LIB_PATH is set
+# explicitly below (rather than relying on this image's baked-in
+# LD_LIBRARY_PATH=/opt/rocm/lib to resolve the bare SONAME) so the shim
+# still works if a downstream image or override changes that env var.
+RUN --mount=type=bind,from=files_vllm,src=/app/vllm/docs/gfx906/gfx906-blocking-sync.pth,target=/tmp/gfx906-blocking-sync.pth \
+    python3 -c "import site; print(site.getsitepackages()[0])" > /tmp/site-packages-dir && \
+    cp /tmp/gfx906-blocking-sync.pth "$(cat /tmp/site-packages-dir)/gfx906-blocking-sync.pth" && \
+    rm /tmp/site-packages-dir
+ENV VLLM_GFX906_HIP_LIB_PATH=/opt/rocm/lib/libamdhip64.so
 
 CMD ["/bin/bash"]
