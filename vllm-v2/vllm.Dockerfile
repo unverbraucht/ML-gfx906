@@ -196,7 +196,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,from=build_vllm,src=/dist/,target=/dist \
     pip3 install /dist/*.whl /dist/flash_attn-*.whl -r /app/vllm/requirements/rocm.txt && \
     pip3 install -r /app/extra-requirements/*.txt && \
-    true
+    python3 -c "import scipy.special; print('scipy', scipy.__version__)" && true
 
 # gfx906 TP CPU-spin fix: a Python .pth shim that must run at interpreter
 # startup, before torch/vLLM import anything, to set
