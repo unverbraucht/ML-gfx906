@@ -1,6 +1,9 @@
 # Build seq: rocm_base => build_base => {build_triton => build_fa => build_vllm, build_rust} => final
 
 ARG BASE_PYTORCH_IMAGE="docker.io/mixa3607/pytorch-gfx906:v2.10.0-rocm-6.3.3"
+# Cap parallel C++ compilation. Full $(nproc) (16 here) OOMs the host during
+# triton/FA/vllm wheel builds; 6 is validated (see AGENTS.md).
+ARG MAX_JOBS=6
 ARG EXTRA_REQUIREMENTS="empty.txt"
 # Optional apt mirror override (e.g. http://ubuntu.mirror.lrz.de/ubuntu/).
 # Empty = keep the image default. Rewrites both archive. and security. hosts.
@@ -149,7 +152,7 @@ COPY --from=files_triton /app/triton /app/triton
 WORKDIR /app/triton
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r python/requirements.txt
 # Build
-RUN pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
+RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/triton-*.whl
 RUN ls /dist
 
@@ -159,7 +162,7 @@ COPY --from=files_fa /app/flash-attention /app/flash-attention
 WORKDIR /app/flash-attention
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install ninja packaging wheel pybind11 psutil
 # Build
-RUN pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
+RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/flash_attn-*.whl
 RUN ls /dist
 
@@ -180,7 +183,7 @@ COPY --from=build_rust /app/vllm/vllm/_rust_*.so /app/vllm/vllm/
 WORKDIR /app/vllm
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r requirements/rocm.txt
 # Build
-RUN pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
+RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/vllm-*.whl
 RUN ls /dist 
 
