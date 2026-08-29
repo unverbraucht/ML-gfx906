@@ -1,0 +1,12 @@
+# Extra runtime requirements for KIntegrated vllm-gfx906-mobydick @ 103f06d223
+# (gfx906/v0.28.0 + gfx906/main merges: FA gather-buffer lifecycle fix,
+# M2/M3 Q8 FA work, W2/W4 perf work, README serving-config docs).
+# Unchanged from the a4cb86c4aa release pinset (no extra-dependency changes).
+# Per the fork's README, transformers 5.7.0 (<6) is the validated version.
+transformers==5.7.0
+opentelemetry-sdk
+opentelemetry-api
+opentelemetry-semantic-conventions-ai
+opentelemetry-exporter-otlp
+modelscope
+yq
