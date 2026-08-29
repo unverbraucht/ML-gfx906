@@ -6,13 +6,13 @@ export VLLM_PYTORCH_VERSION="v2.13.0"
 
 # KIntegrated vLLM gfx906/v0.28.0: upstream v0.28.0rc2 merged onto the
 # gfx906 fork line; branch receives gfx906/main merges (FA gather-buffer
-# lifecycle fix, W2/W4 perf work). vLLM repo, branch, commit below.
+# lifecycle fix + M2/M3 Q8 FA work, W2/W4 perf work, README serving config). vLLM repo, branch, commit below.
 # VLLM_VERSION is applied as a local git tag so setuptools-scm reports it
 # (see AGENTS.md). The vllm short commit is kept in the image tag for build
 # metadata while this is a prerelease.
 export VLLM_REPO="https://github.com/KIntegrated/vllm-gfx906-mobydick.git"
 export VLLM_BRANCH="gfx906/v0.28.0"
-export VLLM_COMMIT="a4cb86c4aa"
+export VLLM_COMMIT="103f06d223"
 
 # triton / flash-attention: validated gfx906 forks (unchanged from 0.26.0)
 export VLLM_TRITON_REPO="https://github.com/ai-infos/triton-gfx906.git"
