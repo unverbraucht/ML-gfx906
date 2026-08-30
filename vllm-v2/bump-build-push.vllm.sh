@@ -19,21 +19,22 @@ cd "$(dirname "$0")"
 . "./${PRESET}"
 REQ_DIR="build-context/requirements/$(dirname "$VLLM_EXTRA_REQUIREMENTS")"
 
-echo "== current: VLLM_BRANCH=$VLLM_BRANCH VLLM_COMMIT=$VLLM_COMMIT"
 NEW_TIP=$(git ls-remote "$VLLM_REPO" "refs/heads/$VLLM_BRANCH" | awk '{print $1}')
 if [ -z "$NEW_TIP" ]; then
   echo "ERROR: could not resolve $VLLM_REPO refs/heads/$VLLM_BRANCH" >&2; exit 1
 fi
-echo "== tip:     $NEW_TIP"
+NEW_SHORT="${NEW_TIP:0:10}"
 
-if [ "$NEW_TIP" != "$VLLM_COMMIT" ]; then
-  echo "== bumping VLLM_COMMIT $VLLM_COMMIT -> $NEW_TIP"
-  NEW_SHORT=${NEW_TIP:0:10}
-  # update the preset file in place
+echo "== current: VLLM_BRANCH=$VLLM_BRANCH VLLM_COMMIT=$VLLM_COMMIT"
+echo "== tip:     $NEW_TIP (short $NEW_SHORT)"
+
+# --- update preset only if the tip actually differs (compare short forms) ---
+if [ "$NEW_SHORT" != "$VLLM_COMMIT" ]; then
+  echo "== bumping VLLM_COMMIT $VLLM_COMMIT -> $NEW_SHORT"
   sed -i "s/^export VLLM_COMMIT=.*/export VLLM_COMMIT=\"${NEW_SHORT}\"/" "$PRESET"
-  # copy req pinset under the new commit name (content unchanged unless deps changed; we copy the old one)
-  if [ ! -f "build-context/requirements/${REQ_DIR}/${NEW_SHORT}.txt" ]; then
-    cp "build-context/requirements/${REQ_DIR}/${VLLM_COMMIT}.txt" "build-context/requirements/${REQ_DIR}/${NEW_SHORT}.txt"
+  # copy req pinset under the new commit name (content unchanged unless deps changed)
+  if [ ! -f "${REQ_DIR}/${NEW_SHORT}.txt" ]; then
+    cp "${REQ_DIR}/${VLLM_COMMIT}.txt" "${REQ_DIR}/${NEW_SHORT}.txt"
     echo "  (copied req pinset ${VLLM_COMMIT}.txt -> ${NEW_SHORT}.txt)"
   fi
   # re-source for the new value
