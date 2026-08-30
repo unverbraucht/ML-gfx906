@@ -7,7 +7,7 @@
 #
 # Requires: git (HTTPS remotes), docker buildx, the preset file, and the
 # requirements pinset dir. Uses the LRZ APT mirror unless VLLM_APT_MIRROR set.
-set -euo pipefail
+set -eo pipefail
 
 PRESET="${1:?usage: bump-build-push.vllm.sh <preset> [--push]}"
 PUSH=0
@@ -17,6 +17,10 @@ cd "$(dirname "$0")"
 
 # --- load current preset values ---
 . "./${PRESET}"
+# env.sh provides the image name and other defaults (same as build.vllm.sh).
+# Note: env.sh is not set -u clean (reads REPO_GIT_REF/\$1 before setting),
+# so this script uses set -e only, like build.vllm.sh.
+source ../env.sh "vllm-v2" "pytorch"
 REQ_DIR="build-context/requirements/$(dirname "$VLLM_EXTRA_REQUIREMENTS")"
 
 NEW_TIP=$(git ls-remote "$VLLM_REPO" "refs/heads/$VLLM_BRANCH" | awk '{print $1}')
