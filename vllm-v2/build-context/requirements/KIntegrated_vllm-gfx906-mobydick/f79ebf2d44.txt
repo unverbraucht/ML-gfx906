@@ -1,0 +1,18 @@
+# Extra runtime requirements for KIntegrated vllm-gfx906-mobydick @ e730ef4066
+# (gfx906/v0.29.0 — upstream v0.29.0 merged onto the gfx906 line: V2 runner
+# default for the validated models, VIT-1 custom-FA vision tower, MTP k=3
+# default, CAT-1 corpus tooling, A3 revived-but-inert, 0.29 fused KV layout).
+#
+# transformers pin bumped 5.7.0 -> 5.15.0 for this release: upstream 0.29's
+# requirements/common.txt requires "transformers >= 5.10.4", and 5.15.0 is the
+# version the 0.29.0 validation runs used (FA suite 97/97, in-process PPL
+# 10.5516 bit-identical to V1/0.28, serving parity dense 27B + MoE 35B,
+# Nemotron 26.9937, Ornith 16.67). Pinning the old 5.7.0 would contradict the
+# upstream constraint and is not what was tested.
+transformers==5.15.0
+opentelemetry-sdk
+opentelemetry-api
+opentelemetry-semantic-conventions-ai
+opentelemetry-exporter-otlp
+modelscope
+yq

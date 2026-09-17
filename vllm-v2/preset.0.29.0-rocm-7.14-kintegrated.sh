@@ -22,7 +22,7 @@ export VLLM_PYTORCH_VERSION="v2.13.0"
 # metadata while this is a prerelease.
 export VLLM_REPO="https://github.com/KIntegrated/vllm-gfx906-mobydick.git"
 export VLLM_BRANCH="gfx906/v0.29.0"
-export VLLM_COMMIT="e730ef4066"
+export VLLM_COMMIT="f79ebf2d44"
 
 # triton / flash-attention: the validated gfx906 forks (unchanged from 0.28.0).
 # TRITON-1 tracks moving to stock triton 3.8.0, which carries upstream gfx906
