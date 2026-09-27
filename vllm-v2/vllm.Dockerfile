@@ -1,9 +1,13 @@
 # Build seq: rocm_base => build_base => {build_triton => build_fa => build_vllm, build_rust} => final
 
 ARG BASE_PYTORCH_IMAGE="docker.io/mixa3607/pytorch-gfx906:v2.10.0-rocm-6.3.3"
-# Cap parallel C++ compilation. Full $(nproc) (16 here) OOMs the host during
-# triton/FA/vllm wheel builds; 6 is validated (see AGENTS.md).
-ARG MAX_JOBS=6
+# Cap parallel C++ compilation. This is a 31 GiB host and buildx runs the
+# build_rust (cargo) stage concurrently with the build_triton/build_fa/
+# build_vllm (C++) stages, so the per-stage job counts must sum to something
+# that fits: triton 3.8.0's TritonGPUToLLVM translation units are multi-GB
+# each, and 6 jobs + 4 cargo jobs OOM-killed the box (killing the build and
+# the agent session). 4 compile jobs + CARGO_BUILD_JOBS=2 peaks well under.
+ARG MAX_JOBS=4
 ARG EXTRA_REQUIREMENTS="empty.txt"
 # Optional apt mirror override (e.g. http://ubuntu.mirror.lrz.de/ubuntu/).
 # Empty = keep the image default. Rewrites both archive. and security. hosts.
@@ -122,8 +126,9 @@ FROM build_base AS build_rust
 ENV CARGO_HOME=/root/.cargo
 ENV RUSTUP_HOME=/root/.rustup
 ENV PATH=${CARGO_HOME}/bin:${PATH}
-# Cap cargo parallelism (rustc easily hits RLIMIT_NOFILE / OOM otherwise).
-ENV CARGO_BUILD_JOBS=4
+# Cap cargo parallelism (rustc builds are memory-hungry and this stage runs
+# in parallel with the triton/FA/vllm C++ stages on a 31 GiB host).
+ENV CARGO_BUILD_JOBS=2
 ENV CARGO_NET_RETRY=10
 ENV RUSTUP_MAX_RETRIES=10
 WORKDIR /app/vllm
@@ -149,10 +154,29 @@ RUN --mount=type=cache,target=/root/.cargo/registry,sharing=locked \
 
 ############# Build triton #############
 FROM build_base AS build_triton
+# Serialize against build_rust: both stages are FROM build_base and buildx runs
+# them concurrently, which peaked past this host's RAM. This bind mount adds a
+# dependency edge only (no layer content).
+RUN --mount=type=bind,from=build_rust,src=/app/vllm/vllm/vllm-rs,target=/tmp/.rust-built true
 COPY --from=files_triton /app/triton /app/triton
 WORKDIR /app/triton
+# Stock upstream Triton 3.8.0 build settings (README.md "TRITON 3.8.0",
+# docs/gfx906/RECON-triton-1.md). gfx906 is an upstream target since
+# aa53dba7455 (ISAFamily::GCN5_1), so no fork/patch is needed.
+#  - amd-only codegen (no CUDA backend needed on this box)
+#  - the 3.8.0 prebuilt LLVM's exported targets request an install-RPATH
+#    relink the Ninja generator refuses; CMake's own suggestion clears it
+# Do NOT set TRITON_BUILD_WITH_CLANG_LLD=1: it wants bare clang/clang++ on
+# PATH and fails with a misleading "not a full path" error.
+# (A rollback to the ai-infos fork would need TRITON_CODEGEN_BACKENDS relaxed.)
+ENV TRITON_CODEGEN_BACKENDS=amd
+ENV TRITON_APPEND_CMAKE_ARGS="-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON"
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r python/requirements.txt
 # Build
+# NOTE: ARG re-declared per stage on purpose — a pre-FROM ARG is not visible to
+# RUN without this (without it ${MAX_JOBS:-$(nproc)} silently falls back to all
+# cores and OOMs the host).
+ARG MAX_JOBS
 RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/triton-*.whl
 RUN ls /dist
@@ -163,6 +187,7 @@ COPY --from=files_fa /app/flash-attention /app/flash-attention
 WORKDIR /app/flash-attention
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install ninja packaging wheel pybind11 psutil
 # Build
+ARG MAX_JOBS
 RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/flash_attn-*.whl
 RUN ls /dist
@@ -184,6 +209,7 @@ COPY --from=build_rust /app/vllm/vllm/_rust_*.so /app/vllm/vllm/
 WORKDIR /app/vllm
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r requirements/rocm.txt
 # Build
+ARG MAX_JOBS
 RUN MAX_JOBS=${MAX_JOBS:-$(nproc)} pip3 wheel -v --no-deps --no-build-isolation --wheel-dir /dist .
 RUN --mount=type=cache,target=/root/.cache/pip pip3 install /dist/vllm-*.whl
 RUN ls /dist 
