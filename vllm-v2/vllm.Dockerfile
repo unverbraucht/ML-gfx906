@@ -85,16 +85,17 @@ WORKDIR /app/vllm
 RUN git clone --depth 1 --recurse-submodules --shallow-submodules --jobs 4 --branch ${VLLM_BRANCH} ${VLLM_REPO} .
 RUN if [ "$VLLM_COMMIT" != "" ]; then git checkout "$VLLM_COMMIT"; fi
 # Tag this snapshot so setuptools-scm derives VLLM_VERSION (see AGENTS.md).
-# Auto mode: fetch the declared tag; only synthesize it locally when the
-# checkout is not already exactly tagged (shallow --branch clones fetch no
-# tags, so untagged fork branches always take the synthetic tag, while a
-# branch whose tip really is vX.Y.Z keeps its natural version). Set
-# VLLM_VERSION="" in the preset to disable tagging entirely.
+# Auto mode: fetch the declared tag; synthesize it at HEAD unless HEAD already
+# carries exactly that tag. Any *other* tag at HEAD (e.g. the fork's annotated
+# 'gfx906/vX.Y.Z-final' release tag) is deleted, because setuptools-scm tries to
+# parse it and aborts with "Can't parse version from tag" on non-PEP440 names.
+# Set VLLM_VERSION="" in the preset to disable tagging entirely.
 RUN if [ -n "$VLLM_VERSION" ]; then \
       git fetch --quiet --depth 1 origin "refs/tags/v${VLLM_VERSION}:refs/tags/v${VLLM_VERSION}" 2>/dev/null || true; \
-      if ! git describe --tags --exact-match HEAD >/dev/null 2>&1; then \
+      if ! git describe --tags --exact-match --match "v${VLLM_VERSION}" HEAD >/dev/null 2>&1; then \
         git tag -f "v${VLLM_VERSION}"; \
       fi; \
+      for t in $(git tag --points-at HEAD | grep -vx "v${VLLM_VERSION}"); do git tag -d "$t" >/dev/null; done; \
     fi
 # Patch
 COPY ./patch/${VLLM_PATCH} ./${VLLM_PATCH}
