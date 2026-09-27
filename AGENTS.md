@@ -132,3 +132,41 @@ The `0.26.0-rocm-7.2.1-kintegrated` image builds and runs correctly on gfx906
 mechanism above is **not yet wired** into `vllm-v2/`. Wiring it is a small
 change following this note: add `VLLM_VERSION` to the presets, thread it as a
 build arg, and add the `git tag` line in `files_vllm`.
+
+## Build memory: the build can OOM-kill the host (2026-09-27)
+
+Symptom: a `buildx` build dies and **takes the agent session with it** — the
+kernel log shows a burst of `Out of memory: Killed process …`, including the
+build's own `tee` (`journalctl -k | grep -i oom`). This box has 31 GiB RAM and
+no swap headroom worth speaking of, so any unbounded parallelism in the build
+is a host-level hazard, not just a slow build.
+
+Two independent causes hit us on the same day, both now fixed in
+`vllm-v2/vllm.Dockerfile`; keep both invariants if you touch it:
+
+1. **`ARG` scoping silently voids the cap.** `ARG MAX_JOBS=4` declared
+   *before* any `FROM` is **not** visible to stage instructions. Without a
+   per-stage `ARG MAX_JOBS`, `MAX_JOBS=${MAX_JOBS:-$(nproc)}` expands to
+   **`nproc` (16 here)** — so the cap looked present in every review and did
+   nothing. Each wheel stage (`build_triton`, `build_fa`, `build_vllm`) must
+   re-declare `ARG MAX_JOBS` after its `FROM`.
+   *How to check:* the resolved value is printed in the log —
+   `#NN [build_triton 5/7] RUN MAX_JOBS=4 pip3 wheel …`. If it shows
+   `${MAX_JOBS:-$(nproc)}` or a bare `$(nproc)`, the ARG never arrived.
+2. **buildx runs independent stages concurrently.** `build_rust` and
+   `build_triton` are both `FROM build_base`, so their peaks *sum* (cargo ×
+   `CARGO_BUILD_JOBS` + cmake × `MAX_JOBS`), and C++ TUs in triton's
+   `TritonGPUToLLVM` are multi-GiB each. `build_triton` therefore carries a
+   dependency-only bind mount
+   (`RUN --mount=type=bind,from=build_rust,… true`) that serializes it behind
+   `build_rust`; the mount adds no layer content, just the DAG edge.
+
+Current defaults for this host: **`MAX_JOBS=4`**, **`CARGO_BUILD_JOBS=2`**.
+Raising either is a memory decision — check `free -g` and expect the worst-case
+sum, not the average. Note also that Triton's own build defaults `MAX_JOBS` to
+`2 × cpu_count` when the variable is unset, so an unset/voided cap is *worse*
+than no cap at all.
+
+(Historical note: the pre-0.30.0 images were built with `MAX_JOBS` effectively
+unset — the 3.6.0 fork's triton TUs were small enough to survive it. Stock
+Triton 3.8.0 is not.)
