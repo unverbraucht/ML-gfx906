@@ -1,0 +1,18 @@
+# Extra runtime requirements for KIntegrated vllm-gfx906-mobydick @ ad4e5566be
+# (gfx906/v0.31.0 — upstream v0.31.0 merged onto the gfx906 line plus the
+# post-merge dev train: lab skinny/W4 + host all-reduce ports, DFlash2/LiLiCorr
+# drafter fixes, BOLT-2 upstream context-KV fix, SYV-4 sampler ordering,
+# opt-in packed KV layout).
+#
+# transformers pin stays 5.15.0: upstream 0.31's requirements/common.txt
+# requires "transformers >= 5.10.4, < 5.18.0", and 5.15.0 is the version the
+# fork's runs (and the .venv the 0.31 line was validated on) use. The 0.29.0
+# validation that introduced this pin (FA suite 97/97, PPL parity, serving
+# parity) still holds on 0.31 — see docs/gfx906/CHANGELOG.md 2026-10-16.
+transformers==5.15.0
+opentelemetry-sdk
+opentelemetry-api
+opentelemetry-semantic-conventions-ai
+opentelemetry-exporter-otlp
+modelscope
+yq

@@ -23,17 +23,16 @@ export VLLM_PYTORCH_VERSION="v2.13.0"
 # metadata while this is a prerelease.
 export VLLM_REPO="https://github.com/KIntegrated/vllm-gfx906-mobydick.git"
 export VLLM_BRANCH="gfx906/v0.30.0"
-export VLLM_COMMIT="6ccbb03119"
+export VLLM_COMMIT="1c4d1065ad"
 
-# triton / flash-attention: the validated gfx906 forks as used by the 0.29.0
-# image (triton 3.6.0+gfx906). NOTE (TRITON-1): the fork's docs now default
-# gfx906 to *stock* upstream Triton 3.8.0 (gfx906 is upstream since aa53dba7455,
-# ISAFamily::GCN5_1) — building that from source would be a follow-up image
-# build with TRITON_CODEGEN_BACKENDS=amd and
-# TRITON_APPEND_CMAKE_ARGS="-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON"
-# (see README.md "TRITON 3.8.0" / docs/gfx906/RECON-triton-1.md).
-export VLLM_TRITON_REPO="https://github.com/ai-infos/triton-gfx906.git"
-export VLLM_TRITON_BRANCH="v3.6.0+gfx906"
+# triton: *stock upstream* Triton 3.8.0 since the 0.30.0 build. gfx906 is an
+# upstream target (aa53dba7455, ISAFamily::GCN5_1), so the old
+# ai-infos/triton-gfx906 fork (v3.6.0 + a 7-line patch) is no longer used and is
+# kept only as a rollback. Build settings live in the Dockerfile's build_triton
+# stage (TRITON_CODEGEN_BACKENDS=amd, TRITON_APPEND_CMAKE_ARGS RPATH fix).
+# See README.md "TRITON 3.8.0" and docs/gfx906/RECON-triton-1.md.
+export VLLM_TRITON_REPO="https://github.com/triton-lang/triton.git"
+export VLLM_TRITON_BRANCH="v3.8.0"
 
 export VLLM_FA_REPO="https://github.com/ai-infos/flash-attention-gfx906.git"
 export VLLM_FA_BRANCH="gfx906/v2.8.3.x"
