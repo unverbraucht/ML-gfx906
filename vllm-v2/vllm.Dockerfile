@@ -145,12 +145,15 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY --from=files_vllm /app/vllm/rust ./rust
 COPY --from=files_vllm /app/vllm/rust-toolchain.toml ./rust-toolchain.toml
 COPY --from=files_vllm /app/vllm/tools/build_rust.py ./tools/build_rust.py
-COPY --from=files_vllm /app/vllm/build_rust.sh ./build_rust.sh
+# The driver script comes from this build context, not the vLLM tree: upstream
+# moved it (root -> tools/) in v0.31.0 (#58572), and build-context/scripts/
+# build_rust.sh is layout-agnostic. See that file's header.
+COPY ./scripts/build_rust.sh ./tools/build_rust.sh
 RUN --mount=type=cache,target=/root/.cargo/registry,sharing=locked \
     --mount=type=cache,target=/root/.cargo/git,sharing=locked \
     --mount=type=cache,target=/root/.cargo/bin \
     --mount=type=cache,target=/root/.rustup \
-    bash build_rust.sh && test -x vllm/vllm-rs
+    bash tools/build_rust.sh && test -x vllm/vllm-rs
 
 ############# Build triton #############
 FROM build_base AS build_triton
