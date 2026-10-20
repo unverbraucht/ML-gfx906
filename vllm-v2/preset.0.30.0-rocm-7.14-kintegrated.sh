@@ -7,9 +7,12 @@ export VLLM_PYTORCH_VERSION="v2.13.0"
 # KIntegrated vLLM gfx906/v0.30.0: upstream v0.30.0 merged onto the gfx906 fork
 # line (tagged gfx906/v0.30.0-final). Carries the 0.29 promotion work plus:
 # - V2 model runner default for the models whose parity passed (dense 27B, MoE
-#   35B, Nemotron 3.5 Lightning, Ornith); Gemma-4 and Muse-Glimmer stay pinned to
-#   V1 (VLLM_USE_V2_MODEL_RUNNER=0) until their gate passes. Upstream removes V1
-#   in 0.32.0.
+#   35B, Nemotron 3.5 Lightning, Ornith). CORRECTION (2026-10-20): Gemma-4 and
+#   Muse-Glimmer were NOT left pinned to V1 -- both gates passed (templated
+#   V1-vs-V2 comparison for Gemma-4 on 2026-09-15, V2 serving for Muse-Glimmer on
+#   2026-09-16) and the pins were lifted. V1 also survived into 0.32.0 (the env
+#   var is still honoured; only HiSparse refuses it), so the pin remains available
+#   as a rollback rather than as a supported default.
 # - VIT-1: the Qwen3.5/3.8 vision tower runs on the custom FA (default ON,
 #   image-prompt TTFT -11.5 % @1024x1024, no per-boot Triton ViT JIT); kill
 #   switches GFX906_FA_VIT=0 / GFX906_FA_VIT_AUTO=0.
