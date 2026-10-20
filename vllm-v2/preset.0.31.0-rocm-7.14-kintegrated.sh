@@ -21,16 +21,35 @@ export VLLM_PYTORCH_VERSION="v2.13.0"
 #   docs/gfx906/UPSTREAM-dflash-context-kv.md.
 # - SYV-4 sort-free sampler runs before the triton top-k/top-p path
 #   (afc9565da5; dead code before, 1434 -> 306 us at B=1 k=8, bit-identical).
-# - Packed KV layout ("E2", K Q8_0 + V fp16 in one cell) is present but OFF
-#   (GFX906_FA_PACKED); it changes the page size/block aligner, so it is opt-in.
-# - MTP k=3 is the default spec config; the cudagraph capture ladder must be a
-#   multiple of k+1 up to max_num_seqs x (k+1).
+# - Packed KV layout ("E2", K Q8_0 + V fp16 in one cell) is now default `auto`
+#   (2026-10-19 train): the engine keeps the alias layout unless the predicted
+#   *usable* KV capacity gain clears 5 %, computed per (model, max_model_len)
+#   from the hybrid aligner's two dry runs. 35B 8k +33.6 % -> on, Lightning 8k
+#   +0.4 % -> off, Lightning 16k +14.8 % -> on. `--gfx906-fa-packed on|off`
+#   forces it; `GFX906_FA_PACKED` is the env override (the only form a TP worker
+#   sees before the layout is resolved). Throughput-neutral (TP=1 B=4 +0.41 %,
+#   TP=2 B=4 -0.5 %), so the win is capacity.
+# - Packed KV at TP>1 is fixed (`ad69623e9c`): the layout is now derived from the
+#   pool's cell width instead of a flag captured at impl construction, which in a
+#   TP worker happens before the layout is resolved and made packed x TP=2 die
+#   with "D must be multiple of 32". Also fixed: `--gfx906-fa-packed on` used to
+#   be silently served as the alias layout (`d3d3a59040`).
+# - `top_k_per_row_decode` fails closed when the selection width exceeds the
+#   device's dynamic-LDS budget (`ef2155cb40`): on gfx906 that is topK <= 8192,
+#   and exceeding it used to fault inside the kernel with a sticky HIP error.
+# - Muse-Glimmer's spec method is the official DFlash assistant (`dflash`, k=7,
+#   graphs), not MTP (that checkpoint has no MTP head): 39-43 t/s at B=1 and
+#   60-62 t/s aggregate decode at B=4, acceptance 2.95, TP=2 only - TP=1 cannot
+#   fit the drafter's 2.51 GiB embedding (`9eb7e9adbc`). The obsolete
+#   TORCHINDUCTOR_DYNAMIC_SCALE_RBLOCK=0 workaround is gone (stock Triton 3.8.0).
+# - MTP k=3 is the default spec config for the Qwen3.5/3.8 family; the cudagraph
+#   capture ladder must be a multiple of k+1 up to max_num_seqs x (k+1).
 # VLLM_VERSION is applied as a local git tag so setuptools-scm reports it
 # (see AGENTS.md). The vllm short commit is kept in the image tag for build
 # metadata while this is a prerelease.
 export VLLM_REPO="https://github.com/KIntegrated/vllm-gfx906-mobydick.git"
 export VLLM_BRANCH="gfx906/v0.31.0"
-export VLLM_COMMIT="ad4e5566be"
+export VLLM_COMMIT="3b5f908a60"
 
 # triton: *stock upstream* Triton 3.8.0 since the 0.30.0 build. gfx906 is an
 # upstream target (aa53dba7455, ISAFamily::GCN5_1), so the old
