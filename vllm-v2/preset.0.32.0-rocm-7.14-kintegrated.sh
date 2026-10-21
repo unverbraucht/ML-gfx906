@@ -36,12 +36,12 @@ export VLLM_PYTORCH_VERSION="v2.13.0"
 # Lightning and 35B serving smoke green; graphs PIECEWISE 2/2 + FULL 2/2.
 export VLLM_REPO="https://github.com/KIntegrated/vllm-gfx906-mobydick.git"
 export VLLM_BRANCH="gfx906/v0.32.0"
-# Pinned to the release commit (docs/release snapshot). Later commits on
-# gfx906/v0.32.0 (e.g. the FA tuning-mirror guard, d5b53702e8) are
-# post-release and do not affect the built artifact; bump this to the new
-# tip when the next image is built (the Dockerfile clones --depth 1, so a
-# commit that is not the branch tip cannot be checked out).
-export VLLM_COMMIT="a1b8a71744"
+# Pinned to the branch TIP: the Dockerfile clones --depth 1, so a commit that
+# is not the tip (or a tag reachable from it) cannot be checked out -- pinning
+# an older commit fails with "pathspec ... did not match any file(s)". This tip
+# carries the cuda_compat.h include fix that the 0.32 libtorch_stable
+# flattening broke (9b85b0e9f4), which the first from-scratch build caught.
+export VLLM_COMMIT="9b85b0e9f4"
 
 # triton: *stock upstream* Triton 3.8.0 since the 0.30.0 build. gfx906 is an
 # upstream target (aa53dba7455, ISAFamily::GCN5_1), so the old

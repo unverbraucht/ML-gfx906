@@ -1,4 +1,4 @@
-# Extra runtime requirements for KIntegrated vllm-gfx906-mobydick @ a1b8a71744
+# Extra runtime requirements for KIntegrated vllm-gfx906-mobydick @ 9b85b0e9f4
 # (gfx906/v0.32.0 — upstream v0.32.0 merged onto the gfx906 line, merge commit
 # 1e514c6fd0, plus the post-merge fixes: ckpt_*_proj_name=None scheme check,
 # the moe_wna16 qzeros loader under expert parallelism, and the packed-KV `auto`
