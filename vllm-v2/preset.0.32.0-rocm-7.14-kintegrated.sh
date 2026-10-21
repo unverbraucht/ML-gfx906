@@ -36,6 +36,11 @@ export VLLM_PYTORCH_VERSION="v2.13.0"
 # Lightning and 35B serving smoke green; graphs PIECEWISE 2/2 + FULL 2/2.
 export VLLM_REPO="https://github.com/KIntegrated/vllm-gfx906-mobydick.git"
 export VLLM_BRANCH="gfx906/v0.32.0"
+# Pinned to the release commit (docs/release snapshot). Later commits on
+# gfx906/v0.32.0 (e.g. the FA tuning-mirror guard, d5b53702e8) are
+# post-release and do not affect the built artifact; bump this to the new
+# tip when the next image is built (the Dockerfile clones --depth 1, so a
+# commit that is not the branch tip cannot be checked out).
 export VLLM_COMMIT="a1b8a71744"
 
 # triton: *stock upstream* Triton 3.8.0 since the 0.30.0 build. gfx906 is an
