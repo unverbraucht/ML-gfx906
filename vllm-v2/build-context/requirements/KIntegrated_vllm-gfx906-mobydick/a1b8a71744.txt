@@ -1,0 +1,21 @@
+# Extra runtime requirements for KIntegrated vllm-gfx906-mobydick @ a1b8a71744
+# (gfx906/v0.32.0 — upstream v0.32.0 merged onto the gfx906 line, merge commit
+# 1e514c6fd0, plus the post-merge fixes: ckpt_*_proj_name=None scheme check,
+# the moe_wna16 qzeros loader under expert parallelism, and the packed-KV `auto`
+# gate under MTP spec decode).
+#
+# transformers 5.18.0 (was 5.15.0): upstream 0.32's requirements/common.txt
+# requires "transformers >= 5.16.1, < 5.20.0", so the 0.31 pin is *below* the
+# new minimum. 5.18.0 is the mid-range choice. Validated on this box: the dense
+# 27B PPL gate reads 14.3750 (its recorded baseline, exact) and the
+# config/models/quant/platform suites give 142 passed, 9 skipped (the 15
+# tests/platforms/test_cpu.py failures are this host's pre-existing baseline).
+# 5.15.0 also predates `Qwen4ExpTextConfig`, which is why the fork's QSA module
+# looked unimportable during the merge — the pin, not the code.
+transformers==5.18.0
+opentelemetry-sdk
+opentelemetry-api
+opentelemetry-semantic-conventions-ai
+opentelemetry-exporter-otlp
+modelscope
+yq
