@@ -1,0 +1,22 @@
+# Extra runtime requirements for KIntegrated vllm-gfx906-mobydick @ 8c0888158d
+# (gfx906/v0.32.1 — upstream v0.32.0 on the gfx906 line, plus 0.32.1: Mamba
+# prefill checkpoints default OFF (+21 % KV capacity on hybrid/Mamba2 models;
+# VLLM_GFX906_MAMBA_PREFILL_CKPT=1 restores upstream), the FA launch-config
+# record system (behaviour-neutral, PPL 14.3750 exact), and
+# VLLM_GFX906_KV_SIZING_DEBUG. See docs/gfx906/RELEASE-0.32.1.md.)
+#
+# transformers 5.18.0 (was 5.15.0): upstream 0.32's requirements/common.txt
+# requires "transformers >= 5.16.1, < 5.20.0", so the 0.31 pin is *below* the
+# new minimum. 5.18.0 is the mid-range choice. Validated on this box: the dense
+# 27B PPL gate reads 14.3750 (its recorded baseline, exact) and the
+# config/models/quant/platform suites give 142 passed, 9 skipped (the 15
+# tests/platforms/test_cpu.py failures are this host's pre-existing baseline).
+# 5.15.0 also predates `Qwen4ExpTextConfig`, which is why the fork's QSA module
+# looked unimportable during the merge — the pin, not the code.
+transformers==5.18.0
+opentelemetry-sdk
+opentelemetry-api
+opentelemetry-semantic-conventions-ai
+opentelemetry-exporter-otlp
+modelscope
+yq
